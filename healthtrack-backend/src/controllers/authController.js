@@ -84,15 +84,21 @@ async function register(req, res) {
  * POST /api/auth/login
  */
 async function login(req, res) {
-  const { username, password } = req.body;
+  const { identifier, password } = req.body;
 
-  // 查找用户
-  const user = await UserModel.findByUsername(username);
+  // 查找用户（支持用户名或邮箱）
+  let user;
+  if (identifier.includes('@')) {
+    user = await UserModel.findByEmail(identifier);
+  } else {
+    user = await UserModel.findByUsername(identifier);
+  }
+
   if (!user) {
     return res.status(401).json({
       success: false,
       code: 'INVALID_CREDENTIALS',
-      message: '用户名或密码错误'
+      message: '用户名/邮箱或密码错误'
     });
   }
 

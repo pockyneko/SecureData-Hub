@@ -76,10 +76,15 @@ Authorization: Bearer <access_token>
 **请求体：**
 ```json
 {
-  "username": "zhangsan",
+  "identifier": "zhangsan@example.com",
   "password": "123456"
 }
 ```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| identifier | string | 是 | 用户名或邮箱 |
+| password | string | 是 | 密码 |
 
 **成功响应：**
 ```json

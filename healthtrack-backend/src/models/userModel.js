@@ -6,6 +6,7 @@
 const { query, transaction } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const moment = require('moment');
 
 class UserModel {
   /**
@@ -29,7 +30,7 @@ class UserModel {
       nickname || username,
       height || null,
       gender || null,
-      birthday || null
+      birthday ? moment(birthday).format('YYYY-MM-DD') : null
     ]);
 
     return { id: userId, username, email, nickname: nickname || username };
@@ -84,7 +85,11 @@ class UserModel {
     for (const field of allowedFields) {
       if (updateData[field] !== undefined) {
         updates.push(`${field} = ?`);
-        values.push(updateData[field]);
+        if (field === 'birthday' && updateData[field]) {
+          values.push(moment(updateData[field]).format('YYYY-MM-DD'));
+        } else {
+          values.push(updateData[field]);
+        }
       }
     }
 

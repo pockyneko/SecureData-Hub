@@ -35,7 +35,9 @@ async function testConnection() {
 // 执行查询的便捷方法
 async function query(sql, params = []) {
   try {
-    const [rows] = await pool.execute(sql, params);
+    // 使用 pool.query 而不是 pool.execute
+    // pool.query 会在客户端进行参数转义，对 LIMIT 等参数支持更好
+    const [rows] = await pool.query(sql, params);
     return rows;
   } catch (error) {
     console.error('数据库查询错误:', error.message);

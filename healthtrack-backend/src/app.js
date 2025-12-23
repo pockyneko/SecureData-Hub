@@ -68,6 +68,23 @@ app.use('/api/', limiter);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // ========================================
+// 基础路由
+// ========================================
+
+// 根路径重定向或欢迎信息
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: '欢迎使用 HealthTrack API 服务',
+    docs: '/api',
+    health: '/api/health'
+  });
+});
+
+// 忽略 favicon.ico 请求
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+// ========================================
 // API 路由
 // ========================================
 

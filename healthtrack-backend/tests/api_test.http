@@ -1,0 +1,58 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+### 1. 健康检查
+GET {{baseUrl}}/health
+
+### 2. API 概览
+GET http://localhost:3000/api
+
+### 3. 用户注册
+# @name register
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "password": "Password123!",
+  "nickname": "测试用户"
+}
+
+### 4. 用户登录
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "identifier": "test@example.com",
+  "password": "Password123!"
+}
+
+### 获取登录后的 Token (用于后续请求)
+@authToken = {{login.response.body.data.accessToken}}
+
+### 5. 获取当前用户信息 (需要登录)
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{authToken}}
+
+### 6. 获取健康记录列表 (需要登录)
+GET {{baseUrl}}/health/records
+Authorization: Bearer {{authToken}}
+
+### 7. 添加健康记录 (需要登录)
+POST {{baseUrl}}/health/records
+Authorization: Bearer {{authToken}}
+Content-Type: {{contentType}}
+
+{
+  "type": "weight",
+  "value": 75.5,
+  "unit": "kg",
+  "recordDate": "2023-10-27T10:00:00Z",
+  "notes": "早晨空腹体重"
+}
+
+### 8. 获取健康分析报告 (需要登录)
+GET {{baseUrl}}/health/analysis
+Authorization: Bearer {{authToken}}

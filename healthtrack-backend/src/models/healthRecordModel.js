@@ -14,7 +14,7 @@ class HealthRecordModel {
   static async create(recordData) {
     const { userId, type, value, note, recordDate } = recordData;
     const id = uuidv4();
-    const date = recordDate || moment().format('YYYY-MM-DD');
+    const date = moment(recordDate).format('YYYY-MM-DD');
 
     const sql = `
       INSERT INTO health_records (id, user_id, type, value, note, record_date, created_at)
@@ -35,7 +35,7 @@ class HealthRecordModel {
       r.type,
       r.value,
       r.note || null,
-      r.recordDate || moment().format('YYYY-MM-DD')
+      moment(r.recordDate).format('YYYY-MM-DD')
     ]);
 
     const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
@@ -166,7 +166,7 @@ class HealthRecordModel {
     }
     if (recordDate !== undefined) {
       updates.push('record_date = ?');
-      values.push(recordDate);
+      values.push(moment(recordDate).format('YYYY-MM-DD'));
     }
 
     if (updates.length === 0) return false;

@@ -18,12 +18,15 @@ async function getRecords(req, res) {
   const userId = req.user.id; // 从 JWT 获取，非请求参数
   const { type, startDate, endDate, limit = 100, offset = 0 } = req.query;
 
+  const parsedLimit = parseInt(limit) || 100;
+  const parsedOffset = parseInt(offset) || 0;
+
   const records = await HealthRecordModel.findByUserId(userId, {
     type,
     startDate,
     endDate,
-    limit: parseInt(limit),
-    offset: parseInt(offset)
+    limit: parsedLimit,
+    offset: parsedOffset
   });
 
   const total = await HealthRecordModel.countByUserId(userId);
@@ -41,8 +44,8 @@ async function getRecords(req, res) {
       })),
       pagination: {
         total,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
+        limit: parsedLimit,
+        offset: parsedOffset
       }
     }
   });

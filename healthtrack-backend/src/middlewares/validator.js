@@ -57,7 +57,7 @@ const registerValidation = [
     .withMessage('性别值无效'),
   body('birthday')
     .optional()
-    .isDate()
+    .isISO8601()
     .withMessage('生日格式无效'),
   handleValidation
 ];
@@ -66,10 +66,10 @@ const registerValidation = [
  * 用户登录验证规则
  */
 const loginValidation = [
-  body('username')
+  body('identifier')
     .trim()
     .notEmpty()
-    .withMessage('请输入用户名'),
+    .withMessage('请输入用户名或邮箱'),
   body('password')
     .notEmpty()
     .withMessage('请输入密码'),
@@ -93,7 +93,7 @@ const healthRecordValidation = [
     .withMessage('备注长度不能超过 500 字符'),
   body('recordDate')
     .optional()
-    .isDate()
+    .isISO8601()
     .withMessage('日期格式无效'),
   handleValidation
 ];
@@ -108,11 +108,11 @@ const healthRecordQueryValidation = [
     .withMessage('数据类型无效'),
   query('startDate')
     .optional()
-    .isDate()
+    .isISO8601()
     .withMessage('开始日期格式无效'),
   query('endDate')
     .optional()
-    .isDate()
+    .isISO8601()
     .withMessage('结束日期格式无效'),
   query('limit')
     .optional()
@@ -194,7 +194,7 @@ const profileUpdateValidation = [
     .withMessage('性别值无效'),
   body('birthday')
     .optional()
-    .isDate()
+    .isISO8601()
     .withMessage('生日格式无效'),
   handleValidation
 ];
