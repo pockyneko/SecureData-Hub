@@ -8,6 +8,23 @@ const config = require('../config');
 const { HealthRecordModel, UserModel, UserGoalModel } = require('../models');
 
 /**
+ * 安全地将值转换为数字
+ */
+function toNumber(value, defaultValue = 0) {
+  if (value === null || value === undefined) return defaultValue;
+  const num = parseFloat(value);
+  return isNaN(num) ? defaultValue : num;
+}
+
+/**
+ * 安全地格式化数字为指定小数位
+ */
+function formatNumber(value, decimals = 1) {
+  const num = toNumber(value);
+  return parseFloat(num.toFixed(decimals));
+}
+
+/**
  * 计算 BMI 指数
  * BMI = 体重(kg) / 身高(m)²
  */
@@ -114,16 +131,16 @@ async function getHealthAnalysis(userId) {
     bmiAnalysis: bmiCategory,
     statistics: {
       weekly: {
-        avgSteps: weeklySteps?.avg_value ? Math.round(weeklySteps.avg_value) : null,
-        totalSteps: weeklySteps?.total_value || 0,
-        avgWeight: weeklyWeight?.avg_value ? parseFloat(weeklyWeight.avg_value.toFixed(1)) : null
+        avgSteps: weeklySteps?.avg_value ? Math.round(toNumber(weeklySteps.avg_value)) : 0,
+        totalSteps: toNumber(weeklySteps?.total_value, 0),
+        avgWeight: weeklyWeight?.avg_value ? formatNumber(weeklyWeight.avg_value, 1) : 0
       },
       monthly: {
-        avgSteps: monthlySteps?.avg_value ? Math.round(monthlySteps.avg_value) : null,
-        totalSteps: monthlySteps?.total_value || 0,
-        avgWeight: monthlyWeight?.avg_value ? parseFloat(monthlyWeight.avg_value.toFixed(1)) : null,
+        avgSteps: monthlySteps?.avg_value ? Math.round(toNumber(monthlySteps.avg_value)) : 0,
+        totalSteps: toNumber(monthlySteps?.total_value, 0),
+        avgWeight: monthlyWeight?.avg_value ? formatNumber(monthlyWeight.avg_value, 1) : 0,
         weightChange: monthlyWeight?.max_value && monthlyWeight?.min_value 
-          ? parseFloat((monthlyWeight.max_value - monthlyWeight.min_value).toFixed(1))
+          ? formatNumber(toNumber(monthlyWeight.max_value) - toNumber(monthlyWeight.min_value), 1)
           : null
       }
     },
@@ -319,8 +336,10 @@ async function getTrendData(userId, type, period = 'week') {
     endDate: today,
     data: filteredData.map(d => ({
       date: moment(d.record_date).format('YYYY-MM-DD'),
-      value: type === 'steps' ? d.total_value : parseFloat(d.avg_value.toFixed(1)),
-      count: d.count
+      value: type === 'steps' || type === 'water' || type === 'calories' 
+        ? parseFloat(d.total_value) || 0
+        : parseFloat(parseFloat(d.avg_value).toFixed(1)) || 0,
+      count: parseInt(d.count) || 0
     }))
   };
 }
