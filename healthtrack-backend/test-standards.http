@@ -1,0 +1,3 @@
+### Test GET /api/health-profile/standards endpoint
+GET http://localhost:3000/api/health-profile/standards
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZjOTJiY2E1LTdhZjUtNGNjMi1iMDU1LTFiZmVjMzJhZjgwYSIsInVzZXJuYW1lIjoidGVzdHVzZXIiLCJpYXQiOjE3MzY2MTQxMTEsImV4cCI6MTczNjcwMDUxMX0.C3_9u3HxPV2kXQWHCjzXDJQMrSiUJlBPu59xU5VUwfI

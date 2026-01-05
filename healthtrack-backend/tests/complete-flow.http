@@ -1,0 +1,55 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+### 1. 登录获取Token
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "identifier": "test@example.com",
+  "password": "Password123!"
+}
+
+### 获取Token
+@token = {{login.response.body.data.accessToken}}
+
+### 2. 创建健康档案 - POST /api/health-profile
+POST {{baseUrl}}/health-profile
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "ageGroup": "adult",
+  "activityLevel": "moderately_active",
+  "healthCondition": "good"
+}
+
+### 3. 获取个性化标准 - GET /api/health-profile/standards
+GET {{baseUrl}}/health-profile/standards
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+### 4. 更新医生建议 - PUT /api/health-profile/doctor-notes
+PUT {{baseUrl}}/health-profile/doctor-notes
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "doctorNotes": "患者健康状况良好，建议继续保持现有运动频率"
+}
+
+### 5. 获取个性化分析 - GET /api/health-profile/analysis/personalized
+GET {{baseUrl}}/health-profile/analysis/personalized
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+### 6. 获取健康档案 - GET /api/health-profile
+GET {{baseUrl}}/health-profile
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+### 7. 删除健康档案 - DELETE /api/health-profile
+DELETE {{baseUrl}}/health-profile
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}

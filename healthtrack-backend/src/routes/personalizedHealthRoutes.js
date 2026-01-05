@@ -11,6 +11,22 @@ const { authenticate } = require('../middlewares');
 const { UserHealthProfileModel } = require('../models');
 const { getPersonalizedHealthAnalysis } = require('../services');
 
+// 调试日志
+router.all('*', (req, res, next) => {
+  console.log(`📍 personalizedHealthRoutes matched: ${req.method} ${req.path}`);
+  next();
+});
+
+/**
+ * 测试路由 - 不需要认证
+ */
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'personalizedHealthRoutes 路由已加载成功'
+  });
+});
+
 /**
  * 获取用户的个性化健康标准
  * GET /health-profile/standards

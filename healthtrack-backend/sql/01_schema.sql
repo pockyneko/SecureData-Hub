@@ -99,7 +99,36 @@ CREATE TABLE health_tips (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='健康百科表';
 
 -- ---------------------------------------------
--- 5. 运动建议表 (exercise_advice)
+-- 5. 用户健康档案表 (user_health_profiles)
+-- ---------------------------------------------
+DROP TABLE IF EXISTS user_health_profiles;
+CREATE TABLE user_health_profiles (
+  id VARCHAR(36) NOT NULL PRIMARY KEY COMMENT '档案ID (UUID)',
+  user_id VARCHAR(36) NOT NULL COMMENT '用户ID',
+  age_group ENUM('child', 'teen', 'adult', 'middle_age', 'senior') DEFAULT NULL COMMENT '年龄段',
+  activity_level ENUM('sedentary', 'lightly_active', 'moderately_active', 'very_active', 'extremely_active') DEFAULT 'moderately_active' COMMENT '活动水平',
+  health_condition ENUM('excellent', 'good', 'fair', 'poor') DEFAULT 'good' COMMENT '健康状况',
+  has_cardiovascular_issues TINYINT(1) DEFAULT 0 COMMENT '是否有心血管问题',
+  has_diabetes TINYINT(1) DEFAULT 0 COMMENT '是否有糖尿病',
+  has_joint_issues TINYINT(1) DEFAULT 0 COMMENT '是否有关节问题',
+  is_pregnant TINYINT(1) DEFAULT 0 COMMENT '是否怀孕',
+  is_recovering TINYINT(1) DEFAULT 0 COMMENT '是否在恢复期',
+  personalized_steps_goal INT DEFAULT NULL COMMENT '个性化步数目标',
+  personalized_heart_rate_min INT DEFAULT NULL COMMENT '个性化心率最小值',
+  personalized_heart_rate_max INT DEFAULT NULL COMMENT '个性化心率最大值',
+  personalized_sleep_goal DECIMAL(4,2) DEFAULT NULL COMMENT '个性化睡眠目标 (小时)',
+  personalized_water_goal INT DEFAULT NULL COMMENT '个性化饮水目标 (ml)',
+  doctor_notes TEXT DEFAULT NULL COMMENT '医生建议',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  
+  UNIQUE KEY uk_user_id (user_id),
+  
+  CONSTRAINT fk_user_health_profiles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户健康档案表';
+
+-- ---------------------------------------------
+-- 6. 运动建议表 (exercise_advice)
 -- ---------------------------------------------
 DROP TABLE IF EXISTS exercise_advice;
 CREATE TABLE exercise_advice (
