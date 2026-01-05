@@ -1,0 +1,214 @@
+### Personalized Health API 测试套件
+### 使用说明：
+### 1. 安装 VS Code 插件: REST Client (humao.rest-client)
+### 2. 在下面的请求上点击 "Send Request" 运行测试
+### 3. 右侧面板将显示响应结果
+
+### 基础配置
+
+@baseUrl = http://localhost:3000
+@token = Bearer YOUR_JWT_TOKEN_HERE
+@userId = 1
+
+### ===================================
+### 1️⃣ 用户个性化档案 API 测试
+### ===================================
+
+### 1.1 创建个性化档案
+POST {{baseUrl}}/api/health-profile
+Authorization: {{token}}
+Content-Type: application/json
+
+{
+  "ageGroup": "adult",
+  "activityLevel": "sedentary",
+  "healthCondition": "good",
+  "hasCardiovascularIssues": false,
+  "hasDiabetes": false,
+  "hasJointIssues": false,
+  "isPregnant": false,
+  "isRecovering": false
+}
+
+### 预期响应
+### Status: 201 Created
+### Body: { success: true, message: "Profile created/updated successfully", data: {...} }
+
+---
+
+### 1.2 获取用户档案
+GET {{baseUrl}}/api/health-profile
+Authorization: {{token}}
+
+### 预期响应
+### Status: 200 OK
+### Body: { success: true, data: { userId, ageGroup, activityLevel, ... } }
+
+---
+
+### 1.3 获取个性化标准
+GET {{baseUrl}}/api/health-profile/standards
+Authorization: {{token}}
+
+### 预期响应
+### Status: 200 OK
+### Body: { success: true, data: { recommendedDailySteps, recommendedHeartRate, ... } }
+
+---
+
+### 1.4 获取个性化分析报告
+GET {{baseUrl}}/api/health-profile/analysis/personalized
+Authorization: {{token}}
+
+### 预期响应
+### Status: 200 OK
+### Body: 
+### {
+###   success: true,
+###   data: {
+###     healthScore: 82,
+###     recommendations: [...],
+###     personalizedStandards: {...}
+###   }
+### }
+
+---
+
+### 1.5 更新医生建议
+PUT {{baseUrl}}/api/health-profile/doctor-notes
+Authorization: {{token}}
+Content-Type: application/json
+
+{
+  "doctorNotes": "建议每日散步30分钟，避免高强度运动"
+}
+
+### 预期响应
+### Status: 200 OK
+### Body: { success: true, message: "Doctor notes updated successfully" }
+
+---
+
+### 1.6 删除个性化档案
+DELETE {{baseUrl}}/api/health-profile
+Authorization: {{token}}
+
+### 预期响应
+### Status: 200 OK
+### Body: { success: true, message: "Profile deleted successfully" }
+
+---
+
+### ===================================
+### 2️⃣ 错误处理测试
+### ===================================
+
+### 2.1 缺少授权令牌（应返回 401）
+GET {{baseUrl}}/api/health-profile
+
+---
+
+### 2.2 无效的 ageGroup（应返回 400）
+POST {{baseUrl}}/api/health-profile
+Authorization: {{token}}
+Content-Type: application/json
+
+{
+  "ageGroup": "invalid_age",
+  "activityLevel": "sedentary",
+  "healthCondition": "good"
+}
+
+---
+
+### 2.3 缺少必需字段（应返回 400）
+POST {{baseUrl}}/api/health-profile
+Authorization: {{token}}
+Content-Type: application/json
+
+{
+  "ageGroup": "adult"
+}
+
+---
+
+### ===================================
+### 3️⃣ 数据库脚本检测
+### ===================================
+
+### 3.1 验证数据库连接
+### 命令: node src/scripts/initDatabase.js
+### 预期: 所有表创建成功
+
+### 3.2 验证健康标准预置数据
+### 命令: SELECT COUNT(*) FROM health_standards_reference;
+### 预期: 7 条记录
+
+### 3.3 验证视图
+### 命令: SELECT * FROM v_user_personalized_standards LIMIT 1;
+### 预期: 返回用户匹配的个性化标准
+
+---
+
+### ===================================
+### 4️⃣ 场景测试
+### ===================================
+
+### 场景 A: 久坐上班族
+### 1. 创建档案 (activityLevel: sedentary, ageGroup: adult)
+### 2. 检查标准 (应该是 5000-7000 步)
+### 3. 获取分析
+
+### 场景 B: 老年人
+### 1. 创建档案 (ageGroup: senior, activityLevel: lightly_active)
+### 2. 检查标准 (应该是 4000-6000 步)
+### 3. 检查血压标准 (应该允许 <130/85)
+
+### 场景 C: 孕期妇女
+### 1. 创建档案 (isPregnant: true)
+### 2. 检查标准 (步数应该是 4000-6000)
+### 3. 检查水分摄入建议 (应该 >3000ml)
+
+---
+
+### ===================================
+### 5️⃣ 性能测试
+### ===================================
+
+### 5.1 并发请求测试
+### 使用：VS Code REST Client 的并发功能
+### 或: Apache Bench (ab) 或 wrk
+
+### 命令示例：
+### ab -n 100 -c 10 -H "Authorization: {{token}}" {{baseUrl}}/api/health-profile
+
+---
+
+### ===================================
+### 6️⃣ 集成测试数据
+### ===================================
+
+### 测试用户 1 - 久坐成人
+### 年龄: 35 岁 (adult)
+### 活动: 久坐 (sedentary)
+### 健康状况: 良好 (good)
+### 预期标准: 步数 5000-7000, 心率 60-80
+
+### 测试用户 2 - 活跃成人
+### 年龄: 28 岁 (adult)
+### 活动: 非常活跃 (extremely_active)
+### 健康状况: 优秀 (excellent)
+### 预期标准: 步数 15000-20000, 心率 55-70
+
+### 测试用户 3 - 老年人
+### 年龄: 72 岁 (senior)
+### 活动: 轻度 (lightly_active)
+### 健康状况: 一般 (fair)
+### 预期标准: 步数 4000-6000, 血压 <130/85
+
+### 测试用户 4 - 孕期妇女
+### 年龄: 32 岁 (adult)
+### 活动: 轻度 (lightly_active)
+### 特殊: 孕期 (isPregnant: true)
+### 预期标准: 步数 4000-6000, 睡眠 8-10小时
+
