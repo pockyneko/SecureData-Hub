@@ -104,9 +104,12 @@ app.use('/api/auth', authRoutes);
 // 健康数据路由（需要认证）
 app.use('/api/health', healthRoutes);
 
+<<<<<<< HEAD
 // 个性化健康路由（需要认证）
 app.use('/api/health-profile', personalizedHealthRoutes);
 
+=======
+>>>>>>> 7197238627ae7377a2f0af084cb9a819bc1b422a
 // 公开服务路由
 app.use('/api/public', publicRoutes);
 
@@ -136,6 +139,7 @@ app.get('/api', (req, res) => {
         'PUT /api/health/goals': '更新目标 [需认证]',
         'POST /api/health/mock-data': '生成模拟数据 [需认证]'
       },
+<<<<<<< HEAD
       personalizedHealth: {
         'GET /api/health-profile': '获取个性化健康档案 [需认证]',
         'POST /api/health-profile': '创建/更新个性化健康档案 [需认证]',
@@ -144,6 +148,8 @@ app.get('/api', (req, res) => {
         'GET /api/health-profile/analysis/personalized': '获取个性化健康分析报告 [需认证]',
         'PUT /api/health-profile/doctor-notes': '更新医生建议 [需认证]'
       },
+=======
+>>>>>>> 7197238627ae7377a2f0af084cb9a819bc1b422a
       public: {
         'GET /api/public/tips': '健康百科列表',
         'GET /api/public/tips/:id': '健康百科详情',
