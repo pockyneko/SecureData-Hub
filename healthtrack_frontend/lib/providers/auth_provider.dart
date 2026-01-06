@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/health_service.dart';
 import '../services/public_service.dart';
+import '../services/health_profile_service.dart';
 
 /// 认证状态枚举
 enum AuthStatus {
@@ -23,6 +24,7 @@ class AuthProvider with ChangeNotifier {
   late final AuthService _authService;
   late final HealthService _healthService;
   late final PublicService _publicService;
+  late final HealthProfileService _healthProfileService;
 
   AuthStatus _status = AuthStatus.initial;
   User? _user;
@@ -33,6 +35,7 @@ class AuthProvider with ChangeNotifier {
     _authService = AuthService(_apiService);
     _healthService = HealthService(_apiService);
     _publicService = PublicService(_apiService);
+    _healthProfileService = HealthProfileService(_apiService);
     _tryAutoLogin();
   }
 
@@ -44,6 +47,7 @@ class AuthProvider with ChangeNotifier {
   AuthService get authService => _authService;
   HealthService get healthService => _healthService;
   PublicService get publicService => _publicService;
+  HealthProfileService get healthProfileService => _healthProfileService;
 
   /// 尝试自动登录
   Future<void> _tryAutoLogin() async {
@@ -147,23 +151,30 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      debugPrint('开始登录: $identifier');
       final response = await _authService.login(
         identifier: identifier,
         password: password,
       );
+      debugPrint('登录成功，用户: ${response.user.username}');
 
       _user = response.user;
       await _saveTokens(response.accessToken, response.refreshToken);
       await _saveUserData();
+      debugPrint('Token和用户数据已保存');
+      
       _status = AuthStatus.authenticated;
+      debugPrint('状态已更新为: $_status');
       notifyListeners();
       return true;
     } on ApiException catch (e) {
+      debugPrint('登录失败(ApiException): ${e.message}');
       _error = e.message;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return false;
     } catch (e) {
+      debugPrint('登录失败(未知错误): $e');
       _error = '登录失败: $e';
       _status = AuthStatus.unauthenticated;
       notifyListeners();

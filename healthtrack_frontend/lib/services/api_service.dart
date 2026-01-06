@@ -87,7 +87,15 @@ class ApiService {
 
   // 处理响应
   Map<String, dynamic> _handleResponse(http.Response response) {
-    final body = json.decode(response.body);
+    Map<String, dynamic> body;
+    try {
+      body = json.decode(response.body);
+    } catch (e) {
+      throw ApiException(
+        message: '服务器响应格式错误',
+        statusCode: response.statusCode,
+      );
+    }
     
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;

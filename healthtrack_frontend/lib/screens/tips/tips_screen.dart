@@ -43,7 +43,10 @@ class _TipsScreenState extends State<TipsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadData();
+    // 使用 addPostFrameCallback 确保 widget 树构建完成后再加载数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   @override
@@ -53,32 +56,35 @@ class _TipsScreenState extends State<TipsScreen>
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     final publicService = context.read<AuthProvider>().publicService;
 
+    // 分开请求，避免一个失败导致全部失败
     try {
-      final results = await Future.wait([
-        publicService.getTipCategories(),
-        publicService.getTips(category: _selectedCategory),
-        publicService.getExerciseRecommendations(
-          weather: _weather,
-          timeSlot: _timeSlot,
-        ),
-      ]);
-
-      if (mounted) {
-        setState(() {
-          _categories = results[0] as List<String>;
-          _tips = results[1] as List<HealthTip>;
-          _exercises = results[2] as ExerciseRecommendationsResponse;
-          _isLoading = false;
-        });
-      }
+      _categories = await publicService.getTipCategories();
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      debugPrint('加载分类失败: $e');
+    }
+
+    try {
+      _tips = await publicService.getTips(category: _selectedCategory);
+    } catch (e) {
+      debugPrint('加载健康百科失败: $e');
+    }
+
+    try {
+      _exercises = await publicService.getExerciseRecommendations(
+        weather: _weather,
+        timeSlot: _timeSlot,
+      );
+    } catch (e) {
+      debugPrint('加载运动推荐失败: $e');
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -90,7 +96,7 @@ class _TipsScreenState extends State<TipsScreen>
         setState(() => _tips = tips);
       }
     } catch (e) {
-      // 忽略错误
+      debugPrint('加载健康百科失败: $e');
     }
   }
 

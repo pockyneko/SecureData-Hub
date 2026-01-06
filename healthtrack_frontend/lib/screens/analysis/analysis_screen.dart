@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:math' as math;
 import '../../core/constants/app_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/health_analysis_model.dart';
 import '../../models/health_record_model.dart';
+import '../../models/health_profile_model.dart';
 
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
@@ -18,20 +20,22 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   late TabController _tabController;
   HealthAnalysis? _analysis;
   TrendResponse? _trendData;
+  PersonalizedHealthAnalysis? _personalizedAnalysis;
   bool _isLoading = true;
   bool _isTrendLoading = false;
+  bool _isPersonalizedLoading = false;
   String? _trendError;
+  String? _personalizedError;
   String _selectedTrendType = 'weight';
   String _selectedPeriod = 'month';  // 默认改为 month，数据更多
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _loadData();
-    // 确保趋势数据也被加载
+    _tabController = TabController(length: 3, vsync: this);
+    // 使用 addPostFrameCallback 确保 widget 树构建完成后再加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadTrend();
+      _loadData();
     });
   }
 
@@ -42,6 +46,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     final authProvider = context.read<AuthProvider>();
@@ -54,17 +59,49 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           _isLoading = false;
         });
       }
-      // 加载趋势数据
-      await _loadTrend();
     } catch (e) {
-      print('加载分析数据失败: $e');
+      debugPrint('加载分析数据失败: $e');
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+    
+    // 加载趋势数据
+    await _loadTrend();
+    
+    // 加载个性化分析
+    await _loadPersonalizedAnalysis();
+  }
+
+  Future<void> _loadPersonalizedAnalysis() async {
+    if (!mounted) return;
+    setState(() {
+      _isPersonalizedLoading = true;
+      _personalizedError = null;
+    });
+
+    final authProvider = context.read<AuthProvider>();
+    try {
+      final analysis = await authProvider.healthProfileService.getPersonalizedAnalysis();
+      if (mounted) {
+        setState(() {
+          _personalizedAnalysis = analysis;
+          _isPersonalizedLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('加载个性化分析失败: $e');
+      if (mounted) {
+        setState(() {
+          _personalizedError = e.toString();
+          _isPersonalizedLoading = false;
+        });
       }
     }
   }
 
   Future<void> _loadTrend() async {
+    if (!mounted) return;
     setState(() {
       _isTrendLoading = true;
       _trendError = null;
@@ -72,14 +109,14 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
     final authProvider = context.read<AuthProvider>();
     try {
-      print('加载趋势数据: type=$_selectedTrendType, period=$_selectedPeriod');
+      debugPrint('加载趋势数据: type=$_selectedTrendType, period=$_selectedPeriod');
       final trend = await authProvider.healthService.getTrends(
         _selectedTrendType,
         period: _selectedPeriod,
       );
-      print('趋势数据响应: type=${trend.type}, data长度=${trend.data.length}');
+      debugPrint('趋势数据响应: type=${trend.type}, data长度=${trend.data.length}');
       if (trend.data.isNotEmpty) {
-        print('第一条数据: date=${trend.data.first.date}, value=${trend.data.first.value}');
+        debugPrint('第一条数据: date=${trend.data.first.date}, value=${trend.data.first.value}');
       }
       if (mounted) {
         setState(() {
@@ -88,7 +125,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         });
       }
     } catch (e) {
-      print('加载趋势数据失败: $e');
+      debugPrint('加载趋势数据失败: $e');
       if (mounted) {
         setState(() {
           _trendError = e.toString();
@@ -108,6 +145,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           tabs: const [
             Tab(text: '健康报告'),
             Tab(text: '趋势图表'),
+            Tab(text: '个性化分析'),
           ],
         ),
       ),
@@ -118,6 +156,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
               children: [
                 _buildAnalysisTab(),
                 _buildTrendsTab(),
+                _buildPersonalizedTab(),
               ],
             ),
     );
@@ -838,6 +877,859 @@ class _AnalysisScreenState extends State<AnalysisScreen>
             },
           ),
         ),
+      ),
+    );
+  }
+
+  // ================= 个性化分析 Tab =================
+  
+  Widget _buildPersonalizedTab() {
+    if (_isPersonalizedLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_personalizedError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.person_off, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            const Text(
+              '请先设置个人健康档案',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '在"我的"页面中设置您的健康档案，\n获取个性化健康分析',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadPersonalizedAnalysis,
+              icon: const Icon(Icons.refresh),
+              label: const Text('重新加载'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_personalizedAnalysis == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.analytics, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            const Text('暂无个性化分析数据'),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadPersonalizedAnalysis,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 个性化评分
+            _buildPersonalizedScoreCard(),
+            const SizedBox(height: 16),
+
+            // 雷达图
+            _buildRadarChartCard(),
+            const SizedBox(height: 16),
+
+            // 个性化标准
+            _buildPersonalizedStandardsCard(),
+            const SizedBox(height: 16),
+
+            // 指标详情
+            _buildMetricsAnalysisCard(),
+            const SizedBox(height: 16),
+
+            // 个性化建议
+            if (_personalizedAnalysis!.recommendations.isNotEmpty)
+              _buildPersonalizedRecommendationsCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalizedScoreCard() {
+    final score = _personalizedAnalysis!.overallScore ?? 0;
+    Color scoreColor;
+    String scoreLabel;
+
+    if (score >= 80) {
+      scoreColor = AppTheme.successColor;
+      scoreLabel = '优秀';
+    } else if (score >= 60) {
+      scoreColor = AppTheme.warningColor;
+      scoreLabel = '良好';
+    } else {
+      scoreColor = AppTheme.errorColor;
+      scoreLabel = '需改善';
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '个性化健康评分',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: scoreColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    scoreLabel,
+                    style: TextStyle(
+                      color: scoreColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 140,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  PieChart(
+                    PieChartData(
+                      startDegreeOffset: -90,
+                      sectionsSpace: 0,
+                      centerSpaceRadius: 50,
+                      sections: [
+                        PieChartSectionData(
+                          value: score.toDouble(),
+                          color: scoreColor,
+                          radius: 18,
+                          showTitle: false,
+                        ),
+                        PieChartSectionData(
+                          value: (100 - score).toDouble(),
+                          color: Colors.grey[200],
+                          radius: 18,
+                          showTitle: false,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$score',
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: scoreColor,
+                        ),
+                      ),
+                      Text(
+                        '分',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '基于您的个人健康档案计算',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRadarChartCard() {
+    final metrics = _personalizedAnalysis!.metricsAnalysis;
+    if (metrics.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // 准备雷达图数据
+    final radarData = _prepareRadarData(metrics);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.radar, color: AppTheme.primaryColor),
+                SizedBox(width: 8),
+                Text(
+                  '健康指标雷达图',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '各项指标达标程度可视化',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 280,
+              child: RadarChart(
+                RadarChartData(
+                  radarShape: RadarShape.polygon,
+                  radarBorderData: const BorderSide(color: Colors.transparent),
+                  titlePositionPercentageOffset: 0.2,
+                  titleTextStyle: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  getTitle: (index, angle) {
+                    if (index < radarData.length) {
+                      return RadarChartTitle(
+                        text: radarData[index]['label'] as String,
+                      );
+                    }
+                    return const RadarChartTitle(text: '');
+                  },
+                  dataSets: [
+                    RadarDataSet(
+                      fillColor: AppTheme.primaryColor.withOpacity(0.2),
+                      borderColor: AppTheme.primaryColor,
+                      borderWidth: 2,
+                      entryRadius: 4,
+                      dataEntries: radarData
+                          .map((item) => RadarEntry(value: item['value'] as double))
+                          .toList(),
+                    ),
+                  ],
+                  tickCount: 4,
+                  ticksTextStyle: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[600],
+                  ),
+                  tickBorderData: BorderSide(color: Colors.grey[300]!),
+                  gridBorderData: BorderSide(color: Colors.grey[300]!, width: 1),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // 图例
+            _buildRadarLegend(radarData),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _prepareRadarData(List<HealthMetricAnalysis> metrics) {
+    final List<Map<String, dynamic>> data = [];
+    
+    for (final metric in metrics) {
+      String label;
+      double value = 0;
+      
+      // 根据状态计算达标程度
+      switch (metric.status) {
+        case 'good':
+          value = 100;
+          break;
+        case 'warning':
+          value = 60;
+          break;
+        case 'alert':
+          value = 30;
+          break;
+        default:
+          value = 50;
+      }
+      
+      // 获取指标中文名
+      switch (metric.metric) {
+        case 'steps':
+          label = '步数';
+          break;
+        case 'heart_rate':
+          label = '心率';
+          break;
+        case 'sleep':
+          label = '睡眠';
+          break;
+        case 'water':
+          label = '饮水';
+          break;
+        case 'bmi':
+          label = 'BMI';
+          break;
+        case 'blood_pressure':
+          label = '血压';
+          break;
+        default:
+          label = metric.metric;
+      }
+      
+      data.add({
+        'label': label,
+        'value': value,
+        'status': metric.status,
+        'metric': metric.metric,
+      });
+    }
+    
+    return data;
+  }
+
+  Widget _buildRadarLegend(List<Map<String, dynamic>> radarData) {
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      children: radarData.map((item) {
+        Color statusColor;
+        switch (item['status']) {
+          case 'good':
+            statusColor = AppTheme.successColor;
+            break;
+          case 'warning':
+            statusColor = AppTheme.warningColor;
+            break;
+          case 'alert':
+            statusColor = AppTheme.errorColor;
+            break;
+          default:
+            statusColor = Colors.grey;
+        }
+        
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: statusColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              item['label'] as String,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildPersonalizedStandardsCard() {
+    final standards = _personalizedAnalysis!.personalizedStandards;
+    if (standards == null) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.assignment_ind, color: AppTheme.primaryColor),
+                SizedBox(width: 8),
+                Text(
+                  '您的个性化标准',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildProfileInfo(standards),
+            const Divider(height: 24),
+            _buildStandardsList(standards),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileInfo(PersonalizedHealthStandards standards) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryLight.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.person, color: AppTheme.primaryColor, size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  standards.username ?? '用户',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (standards.ageGroup != null)
+                      _buildInfoChip(_getAgeGroupDisplay(standards.ageGroup!)),
+                    if (standards.activityLevel != null)
+                      _buildInfoChip(_getActivityLevelDisplay(standards.activityLevel!)),
+                    if (standards.gender != null)
+                      _buildInfoChip(standards.gender == 'male' ? '男' : '女'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          color: AppTheme.primaryColor,
+        ),
+      ),
+    );
+  }
+
+  String _getAgeGroupDisplay(String ageGroup) {
+    switch (ageGroup) {
+      case 'child': return '儿童';
+      case 'teen': return '青少年';
+      case 'adult': return '成人';
+      case 'middle_age': return '中年';
+      case 'senior': return '老年';
+      default: return ageGroup;
+    }
+  }
+
+  String _getActivityLevelDisplay(String level) {
+    switch (level) {
+      case 'sedentary': return '久坐';
+      case 'lightly_active': return '轻度活动';
+      case 'moderately_active': return '中等活动';
+      case 'very_active': return '高度活动';
+      case 'extremely_active': return '极高活动';
+      default: return level;
+    }
+  }
+
+  Widget _buildStandardsList(PersonalizedHealthStandards standards) {
+    return Column(
+      children: [
+        if (standards.recommendedDailySteps != null)
+          _buildStandardItem(
+            icon: Icons.directions_walk,
+            label: '每日步数目标',
+            value: '${standards.recommendedDailySteps} 步',
+            color: HealthDataType.getColor('steps'),
+          ),
+        if (standards.recommendedHeartRateMin != null && standards.recommendedHeartRateMax != null)
+          _buildStandardItem(
+            icon: Icons.favorite,
+            label: '心率正常范围',
+            value: '${standards.recommendedHeartRateMin}-${standards.recommendedHeartRateMax} bpm',
+            color: HealthDataType.getColor('heart_rate'),
+          ),
+        if (standards.recommendedSleepHours != null)
+          _buildStandardItem(
+            icon: Icons.bedtime,
+            label: '建议睡眠时长',
+            value: '${standards.recommendedSleepHours} 小时',
+            color: HealthDataType.getColor('sleep'),
+          ),
+        if (standards.recommendedWaterMl != null)
+          _buildStandardItem(
+            icon: Icons.water_drop,
+            label: '每日饮水目标',
+            value: '${standards.recommendedWaterMl} ml',
+            color: HealthDataType.getColor('water'),
+          ),
+        if (standards.bmiOptimalMin != null && standards.bmiOptimalMax != null)
+          _buildStandardItem(
+            icon: Icons.monitor_weight,
+            label: 'BMI理想范围',
+            value: '${standards.bmiOptimalMin!.toStringAsFixed(1)}-${standards.bmiOptimalMax!.toStringAsFixed(1)}',
+            color: HealthDataType.getColor('weight'),
+          ),
+        // 血压: 优先使用原始字符串，否则用解析的数值
+        if (standards.bloodPressureNormalString != null && 
+            standards.bloodPressureNormalString!.isNotEmpty &&
+            !standards.bloodPressureNormalString!.contains('null'))
+          _buildStandardItem(
+            icon: Icons.favorite_border,
+            label: '血压正常值',
+            value: standards.bloodPressureNormalString!,
+            color: HealthDataType.getColor('blood_pressure_sys'),
+          )
+        else if (standards.bloodPressureSystolicNormal != null && 
+                 standards.bloodPressureDiastolicNormal != null)
+          _buildStandardItem(
+            icon: Icons.favorite_border,
+            label: '血压正常值',
+            value: '${standards.bloodPressureSystolicNormal}/${standards.bloodPressureDiastolicNormal} mmHg',
+            color: HealthDataType.getColor('blood_pressure_sys'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStandardItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricsAnalysisCard() {
+    final metrics = _personalizedAnalysis!.metricsAnalysis;
+    if (metrics.isEmpty) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.analytics, color: AppTheme.primaryColor),
+                SizedBox(width: 8),
+                Text(
+                  '各项指标详情',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...metrics.map((metric) => _buildMetricAnalysisItem(metric)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricAnalysisItem(HealthMetricAnalysis metric) {
+    Color statusColor;
+    IconData statusIcon;
+
+    switch (metric.status) {
+      case 'good':
+        statusColor = AppTheme.successColor;
+        statusIcon = Icons.check_circle;
+        break;
+      case 'warning':
+        statusColor = AppTheme.warningColor;
+        statusIcon = Icons.warning;
+        break;
+      case 'alert':
+        statusColor = AppTheme.errorColor;
+        statusIcon = Icons.error;
+        break;
+      default:
+        statusColor = Colors.grey;
+        statusIcon = Icons.help;
+    }
+
+    String metricLabel;
+    String metricUnit = '';
+    switch (metric.metric) {
+      case 'steps':
+        metricLabel = '步数';
+        metricUnit = '步';
+        break;
+      case 'heart_rate':
+        metricLabel = '心率';
+        metricUnit = 'bpm';
+        break;
+      case 'sleep':
+        metricLabel = '睡眠';
+        metricUnit = '小时';
+        break;
+      case 'water':
+        metricLabel = '饮水';
+        metricUnit = 'ml';
+        break;
+      case 'bmi':
+        metricLabel = 'BMI';
+        break;
+      case 'blood_pressure':
+        metricLabel = '血压';
+        metricUnit = 'mmHg';
+        break;
+      default:
+        metricLabel = metric.metric;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: statusColor.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(statusIcon, color: statusColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                metricLabel,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  metric.statusDisplay,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: statusColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                '当前: ',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              Text(
+                '${metric.currentValue ?? '-'} $metricUnit',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                '建议: ',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              Text(
+                metric.recommendedDisplay ?? '${metric.recommendedMin ?? '-'} - ${metric.recommendedMax ?? '-'} $metricUnit',
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+            ],
+          ),
+          if (metric.advice != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              metric.advice!,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonalizedRecommendationsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.lightbulb, color: AppTheme.accentColor),
+                SizedBox(width: 8),
+                Text(
+                  '个性化健康建议',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ..._personalizedAnalysis!.recommendations
+                .map((rec) => _buildPersonalizedRecItem(rec)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalizedRecItem(PersonalizedRecommendation rec) {
+    Color priorityColor;
+    IconData priorityIcon;
+
+    switch (rec.priority) {
+      case 'high':
+        priorityColor = AppTheme.errorColor;
+        priorityIcon = Icons.warning;
+        break;
+      case 'medium':
+        priorityColor = AppTheme.warningColor;
+        priorityIcon = Icons.info;
+        break;
+      default:
+        priorityColor = AppTheme.infoColor;
+        priorityIcon = Icons.lightbulb_outline;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: priorityColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(priorityIcon, color: priorityColor, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      rec.category,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: priorityColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (rec.basedOn != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '基于: ${rec.basedOn}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  rec.advice,
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

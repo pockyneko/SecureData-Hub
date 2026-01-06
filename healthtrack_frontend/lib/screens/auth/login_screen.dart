@@ -36,9 +36,12 @@ class _LoginScreenState extends State<LoginScreen> {
       password: _passwordController.text,
     );
 
+    // 检查组件是否仍然挂载
+    if (!mounted) return;
+
     setState(() => _isLoading = false);
 
-    if (!success && mounted) {
+    if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.error ?? '登录失败'),

@@ -38,10 +38,15 @@ class _RecordsScreenState extends State<RecordsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadRecords();
+    // 使用 addPostFrameCallback 确保 widget 树构建完成后再加载数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadRecords();
+    });
   }
 
   Future<void> _loadRecords({bool refresh = false}) async {
+    if (!mounted) return;
+    
     if (refresh) {
       _offset = 0;
     }
@@ -58,18 +63,21 @@ class _RecordsScreenState extends State<RecordsScreen> {
         offset: _offset,
       );
 
-      setState(() {
-        if (refresh || _offset == 0) {
-          _records = response.records;
-        } else {
-          _records.addAll(response.records);
-        }
-        _total = response.pagination.total;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() {
+          if (refresh || _offset == 0) {
+            _records = response.records;
+          } else {
+            _records.addAll(response.records);
+          }
+          _total = response.pagination.total;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('加载记录失败: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('加载失败: $e')),
         );

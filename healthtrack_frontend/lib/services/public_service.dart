@@ -37,6 +37,12 @@ class PublicService {
         .toList() ?? [];
   }
 
+  /// 获取健康百科详情
+  Future<HealthTip> getTipById(String id) async {
+    final response = await _api.get('${ApiConstants.publicTips}/$id');
+    return HealthTip.fromJson(response['data']);
+  }
+
   /// 获取运动推荐
   Future<ExerciseRecommendationsResponse> getExerciseRecommendations({
     String? weather,
@@ -54,6 +60,14 @@ class PublicService {
       queryParams: queryParams,
     );
     return ExerciseRecommendationsResponse.fromJson(response['data']);
+  }
+
+  /// 获取天气类型列表
+  Future<List<String>> getWeatherTypes() async {
+    final response = await _api.get(ApiConstants.publicExerciseWeatherTypes);
+    return (response['data'] as List<dynamic>?)
+        ?.map((e) => e.toString())
+        .toList() ?? [];
   }
 
   /// 获取每日健康贴士

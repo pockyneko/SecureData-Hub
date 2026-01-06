@@ -34,13 +34,16 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
+        debugPrint('AuthWrapper 状态变化: ${authProvider.status}');
         switch (authProvider.status) {
           case AuthStatus.initial:
           case AuthStatus.loading:
             return const SplashScreen();
           case AuthStatus.authenticated:
+            debugPrint('显示 MainScreen');
             return const MainScreen();
           case AuthStatus.unauthenticated:
+            debugPrint('显示 LoginScreen');
             return const LoginScreen();
         }
       },

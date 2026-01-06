@@ -19,10 +19,17 @@ class ApiConstants {
   static const String healthGoals = '/health/goals';
   static const String healthMockData = '/health/mock-data';
   
+  // 个性化健康档案相关
+  static const String healthProfile = '/health-profile';
+  static const String healthProfileStandards = '/health-profile/standards';
+  static const String healthProfileAnalysis = '/health-profile/analysis/personalized';
+  static const String healthProfileDoctorNotes = '/health-profile/doctor-notes';
+  
   // 公开服务
   static const String publicTips = '/public/tips';
   static const String publicTipsCategories = '/public/tips/categories';
   static const String publicExercises = '/public/exercises/recommendations';
+  static const String publicExerciseWeatherTypes = '/public/exercises/weather-types';
   static const String publicDailyTip = '/public/daily-tip';
   
   // 超时设置
