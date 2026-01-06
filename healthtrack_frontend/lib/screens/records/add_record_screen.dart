@@ -164,7 +164,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         title: const Text('添加记录'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Form(
           key: _formKey,
           child: Column(
@@ -173,15 +173,12 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
               // 类型选择
               const Text(
                 '选择类型',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 6,
+                runSpacing: 6,
                 children: _typeOptions.map((type) {
                   final isSelected = type['value'] == _selectedType;
                   final color = HealthDataType.getColor(type['value']);
@@ -193,38 +190,28 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                         _valueController.clear();
                       });
                     },
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isSelected
-                            ? color.withOpacity(0.2)
-                            : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
+                        color: isSelected ? color.withOpacity(0.15) : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: isSelected ? color : Colors.transparent,
-                          width: 2,
+                          width: 1.5,
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            type['icon'],
-                            size: 18,
-                            color: isSelected ? color : Colors.grey[600],
-                          ),
+                          Icon(type['icon'], size: 16, color: isSelected ? color : Colors.grey[600]),
                           const SizedBox(width: 4),
                           Text(
                             type['label'],
                             style: TextStyle(
+                              fontSize: 13,
                               color: isSelected ? color : Colors.grey[600],
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
                         ],
@@ -233,7 +220,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // 数值输入
               TextFormField(
@@ -241,9 +228,10 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                 decoration: InputDecoration(
                   labelText: typeInfo['label'],
                   hintText: typeInfo['hint'],
-                  prefixIcon: Icon(typeInfo['icon'], color: typeColor),
+                  prefixIcon: Icon(typeInfo['icon'], color: typeColor, size: 20),
                   suffixText: typeInfo['unit'],
                   border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.next,
@@ -258,20 +246,22 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // 日期选择
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.calendar_today, color: typeColor),
-                title: const Text('记录日期'),
+                dense: true,
+                leading: Icon(Icons.calendar_today, color: typeColor, size: 20),
+                title: const Text('记录日期', style: TextStyle(fontSize: 13)),
                 subtitle: Text(
                   DateFormat('yyyy年MM月dd日').format(_selectedDate),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Icons.chevron_right, size: 20),
                 onTap: _selectDate,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
               // 备注
               TextFormField(
@@ -279,17 +269,19 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                 decoration: const InputDecoration(
                   labelText: '备注（可选）',
                   hintText: '添加备注信息',
-                  prefixIcon: Icon(Icons.note),
+                  prefixIcon: Icon(Icons.note, size: 20),
                   border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
-                maxLines: 3,
+                maxLines: 2,
                 maxLength: 500,
+                style: const TextStyle(fontSize: 14),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // 提交按钮
               SizedBox(
-                height: 48,
+                height: 46,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submit,
                   style: ElevatedButton.styleFrom(
@@ -297,17 +289,14 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                          width: 24,
-                          height: 24,
+                          width: 22,
+                          height: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
-                          '保存记录',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                      : const Text('保存记录', style: TextStyle(fontSize: 15)),
                 ),
               ),
             ],

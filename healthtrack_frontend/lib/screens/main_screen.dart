@@ -56,38 +56,41 @@ class _MainScreenState extends State<MainScreen> {
           return const SizedBox.shrink();
         }),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
         },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppTheme.primaryColor,
-        unselectedItemColor: AppTheme.textSecondary,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            activeIcon: Icon(Icons.home),
+        backgroundColor: Colors.white,
+        elevation: 3,
+        shadowColor: Colors.black26,
+        indicatorColor: AppTheme.primaryColor.withOpacity(0.15),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        height: 65,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
             label: '首页',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list_alt),
-            activeIcon: Icon(Icons.list_alt),
+          NavigationDestination(
+            icon: Icon(Icons.edit_note_outlined),
+            selectedIcon: Icon(Icons.edit_note),
             label: '记录',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            activeIcon: Icon(Icons.analytics),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights),
             label: '分析',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.lightbulb),
-            activeIcon: Icon(Icons.lightbulb),
-            label: '百科',
+          NavigationDestination(
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore),
+            label: '发现',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            activeIcon: Icon(Icons.person),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
             label: '我的',
           ),
         ],

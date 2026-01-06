@@ -196,53 +196,46 @@ class _TipsScreenState extends State<TipsScreen>
 
   Widget _buildTipCard(HealthTip tip) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0.5,
       child: InkWell(
         onTap: () => _showTipDetail(tip),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
                       tip.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                    const SizedBox(height: 4),
+                    Text(
+                      tip.content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12, height: 1.3),
                     ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      tip.category,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                tip.content,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  tip.category,
+                  style: TextStyle(fontSize: 10, color: AppTheme.primaryColor),
                 ),
               ),
             ],
@@ -438,64 +431,62 @@ class _TipsScreenState extends State<TipsScreen>
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0.5,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Text(
-                    exercise.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: intensityColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Icon(Icons.fitness_center, color: intensityColor, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exercise.name,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          _buildMiniInfo(Icons.timer_outlined, '${exercise.duration}分钟'),
+                          const SizedBox(width: 12),
+                          _buildMiniInfo(Icons.local_fire_department, '${exercise.caloriesBurned}kcal'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: intensityColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                   child: Text(
                     exercise.intensityDisplay,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: intensityColor,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontSize: 10, color: intensityColor, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               exercise.description,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                _buildExerciseInfo(
-                  Icons.timer,
-                  '${exercise.duration} 分钟',
-                ),
-                const SizedBox(width: 24),
-                _buildExerciseInfo(
-                  Icons.local_fire_department,
-                  '约 ${exercise.caloriesBurned} kcal',
-                ),
-              ],
+              style: TextStyle(color: Colors.grey[600], fontSize: 12, height: 1.3),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -503,20 +494,15 @@ class _TipsScreenState extends State<TipsScreen>
     );
   }
 
-  Widget _buildExerciseInfo(IconData icon, String text) {
+  Widget _buildMiniInfo(IconData icon, String text) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 13,
-          ),
-        ),
+        Icon(icon, size: 12, color: Colors.grey[500]),
+        const SizedBox(width: 2),
+        Text(text, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
       ],
     );
   }
+
 }

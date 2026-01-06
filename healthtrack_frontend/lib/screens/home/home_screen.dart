@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../models/today_summary_model.dart';
 import '../../models/public_models.dart';
 import '../../models/health_analysis_model.dart';
+import '../../models/health_profile_model.dart';
 import '../records/add_record_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -20,13 +21,13 @@ class _HomeScreenState extends State<HomeScreen> {
   TodaySummary? _todaySummary;
   HealthTip? _dailyTip;
   HealthAnalysis? _healthAnalysis;
+  UserHealthProfile? _healthProfile;
   bool _isLoading = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    // 使用 addPostFrameCallback 确保 widget 树构建完成后再加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadData();
@@ -45,27 +46,13 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final authProvider = context.read<AuthProvider>();
 
-      // 分开请求，避免一个失败导致全部失败
-      try {
-        _todaySummary = await authProvider.healthService.getTodaySummary();
-      } catch (e) {
-        debugPrint('获取今日概览失败: $e');
-        // 不抛出异常，继续加载其他数据
-      }
-
-      try {
-        _dailyTip = await authProvider.publicService.getDailyTip();
-      } catch (e) {
-        debugPrint('获取每日贴士失败: $e');
-        // 不抛出异常
-      }
-
-      try {
-        _healthAnalysis = await authProvider.healthService.getAnalysis();
-      } catch (e) {
-        debugPrint('获取健康分析失败: $e');
-        // 不抛出异常
-      }
+      // 并行加载数据
+      await Future.wait([
+        _loadTodaySummary(authProvider),
+        _loadDailyTip(authProvider),
+        _loadHealthAnalysis(authProvider),
+        _loadHealthProfile(authProvider),
+      ]);
     } catch (e) {
       debugPrint('加载数据异常: $e');
     }
@@ -77,14 +64,78 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _loadTodaySummary(AuthProvider authProvider) async {
+    try {
+      _todaySummary = await authProvider.healthService.getTodaySummary();
+    } catch (e) {
+      debugPrint('获取今日概览失败: $e');
+    }
+  }
+
+  Future<void> _loadDailyTip(AuthProvider authProvider) async {
+    try {
+      _dailyTip = await authProvider.publicService.getDailyTip();
+    } catch (e) {
+      debugPrint('获取每日贴士失败: $e');
+    }
+  }
+
+  Future<void> _loadHealthAnalysis(AuthProvider authProvider) async {
+    try {
+      _healthAnalysis = await authProvider.healthService.getAnalysis();
+    } catch (e) {
+      debugPrint('获取健康分析失败: $e');
+    }
+  }
+
+  Future<void> _loadHealthProfile(AuthProvider authProvider) async {
+    try {
+      _healthProfile = await authProvider.healthProfileService.getProfile();
+    } catch (e) {
+      debugPrint('获取健康档案失败: $e');
+    }
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 6) return '夜深了，注意休息 🌙';
+    if (hour < 9) return '早安，美好的一天开始了 ☀️';
+    if (hour < 12) return '上午好，保持活力 💪';
+    if (hour < 14) return '中午好，记得午休 😊';
+    if (hour < 18) return '下午好，继续加油 🎯';
+    if (hour < 22) return '晚上好，放松一下 🌆';
+    return '夜深了，早点休息 🌙';
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('你好，${user?.displayName ?? '用户'}'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '你好，${user?.displayName ?? '用户'}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              _getGreeting(),
+              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.85)),
+            ),
+          ],
+        ),
+        toolbarHeight: 65,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('通知功能即将上线')),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadData,
@@ -97,35 +148,35 @@ class _HomeScreenState extends State<HomeScreen> {
               onRefresh: _loadData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 健康评分卡片
-                    if (_healthAnalysis != null) ...[
-                      _buildHealthScoreCard(),
-                      const SizedBox(height: 16),
-                    ],
+                    // 健康状态总览卡片
+                    _buildHealthOverviewCard(),
+                    const SizedBox(height: 14),
 
-                    // 今日概览卡片
-                    _buildTodayOverviewCard(),
-                    const SizedBox(height: 16),
-
-                    // 目标进度（可视化环形图）
+                    // 今日目标进度
                     _buildGoalProgressSection(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
-                    // 快速记录
+                    // 快速记录水平滚动
                     _buildQuickRecordSection(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
+
+                    // 今日健康数据
+                    _buildTodayDataCard(),
+                    const SizedBox(height: 14),
 
                     // 每日贴士
                     if (_dailyTip != null) _buildDailyTipCard(),
+                    
+                    const SizedBox(height: 70),
                   ],
                 ),
               ),
             ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.push(
             context,
@@ -136,15 +187,185 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         },
         backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('记录', style: TextStyle(color: Colors.white)),
       ),
     );
   }
 
-  Widget _buildTodayOverviewCard() {
+  // 健康状态总览卡片
+  Widget _buildHealthOverviewCard() {
+    final score = _healthAnalysis?.healthScore ?? 0;
+    Color scoreColor;
+    String scoreLabel;
+
+    if (score >= 80) {
+      scoreColor = AppTheme.successColor;
+      scoreLabel = '优秀';
+    } else if (score >= 60) {
+      scoreColor = AppTheme.warningColor;
+      scoreLabel = '良好';
+    } else if (score > 0) {
+      scoreColor = AppTheme.errorColor;
+      scoreLabel = '需改善';
+    } else {
+      scoreColor = Colors.grey;
+      scoreLabel = '暂无';
+    }
+
+    return Card(
+      elevation: 2,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: [
+              scoreColor.withOpacity(0.08),
+              Colors.white,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Row(
+          children: [
+            // 健康评分环形图
+            SizedBox(
+              width: 85,
+              height: 85,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 85,
+                    height: 85,
+                    child: CircularProgressIndicator(
+                      value: score / 100,
+                      strokeWidth: 8,
+                      backgroundColor: Colors.grey[200],
+                      valueColor: AlwaysStoppedAnimation<Color>(scoreColor),
+                    ),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$score',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: scoreColor,
+                        ),
+                      ),
+                      Text(
+                        '分',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: scoreColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            // 健康状态文字
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: scoreColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          scoreLabel,
+                          style: TextStyle(
+                            color: scoreColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_healthProfile == null)
+                        TextButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('请在"我的"页面设置健康档案')),
+                            );
+                          },
+                          icon: const Icon(Icons.add_circle_outline, size: 14),
+                          label: const Text('设置档案', style: TextStyle(fontSize: 11)),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _getHealthSummary(),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  if (_healthAnalysis?.recommendations.isNotEmpty == true) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('💡 ', style: TextStyle(fontSize: 12)),
+                        Expanded(
+                          child: Text(
+                            _healthAnalysis!.recommendations.first.advice,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getHealthSummary() {
+    if (_healthAnalysis == null) return '记录更多数据以获取健康评估';
+    
+    final bmi = _healthAnalysis!.bmiAnalysis;
+    if (bmi != null) {
+      return 'BMI ${bmi.bmi.toStringAsFixed(1)} (${bmi.label})';
+    }
+    return '继续保持健康的生活方式';
+  }
+
+  // 目标进度部分
+  Widget _buildGoalProgressSection() {
+    final progress = _todaySummary?.goalProgress;
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -152,196 +373,88 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  '今日概览',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  '今日目标',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   _todaySummary?.date ?? '',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            // 环形进度图网格
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildOverviewItem(
+                _buildCircularProgress(
                   icon: Icons.directions_walk,
-                  label: '步数',
-                  value: _todaySummary?.summary['steps']?.value.toInt().toString() ?? '0',
-                  color: HealthDataType.getColor('steps'),
-                ),
-                _buildOverviewItem(
-                  icon: Icons.water_drop,
-                  label: '饮水',
-                  value: '${_todaySummary?.summary['water']?.value.toInt() ?? 0}ml',
-                  color: HealthDataType.getColor('water'),
-                ),
-                _buildOverviewItem(
-                  icon: Icons.bedtime,
-                  label: '睡眠',
-                  value: '${_todaySummary?.summary['sleep']?.value.toStringAsFixed(1) ?? '0'}h',
-                  color: HealthDataType.getColor('sleep'),
-                ),
-                _buildOverviewItem(
-                  icon: Icons.monitor_weight,
-                  label: '体重',
-                  value: '${_todaySummary?.summary['weight']?.value.toStringAsFixed(1) ?? '-'}kg',
-                  color: HealthDataType.getColor('weight'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOverviewItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGoalProgressSection() {
-    final progress = _todaySummary?.goalProgress;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '今日目标',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            // 环形进度图布局
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildRadialProgressItem(
                   label: '步数',
                   current: progress?.steps?.current ?? 0,
                   goal: progress?.steps?.goal ?? 10000,
-                  percentage: progress?.steps?.percentage ?? 0,
                   color: HealthDataType.getColor('steps'),
-                  icon: Icons.directions_walk,
                   unit: '步',
                 ),
-                _buildRadialProgressItem(
+                _buildCircularProgress(
+                  icon: Icons.water_drop,
                   label: '饮水',
                   current: progress?.water?.current ?? 0,
                   goal: progress?.water?.goal ?? 2500,
-                  percentage: progress?.water?.percentage ?? 0,
                   color: HealthDataType.getColor('water'),
-                  icon: Icons.water_drop,
                   unit: 'ml',
                 ),
-                _buildRadialProgressItem(
+                _buildCircularProgress(
+                  icon: Icons.bedtime,
                   label: '睡眠',
                   current: progress?.sleep?.current ?? 0,
                   goal: progress?.sleep?.goal ?? 8,
-                  percentage: progress?.sleep?.percentage ?? 0,
                   color: HealthDataType.getColor('sleep'),
-                  icon: Icons.bedtime,
                   unit: 'h',
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            // 详细进度条
-            _buildDetailedProgress(progress),
           ],
         ),
       ),
     );
   }
 
-  // 环形进度项
-  Widget _buildRadialProgressItem({
+  Widget _buildCircularProgress({
+    required IconData icon,
     required String label,
     required double current,
     required double goal,
-    required double percentage,
     required Color color,
-    required IconData icon,
     required String unit,
   }) {
-    final displayValue = unit == 'h' 
-        ? current.toStringAsFixed(1) 
-        : current.toInt().toString();
+    final percentage = goal > 0 ? (current / goal * 100).clamp(0, 100) : 0;
     
     return Column(
       children: [
         SizedBox(
-          width: 85,
-          height: 85,
+          width: 65,
+          height: 65,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // 环形进度
               SizedBox(
-                width: 85,
-                height: 85,
-                child: CustomPaint(
-                  painter: _RadialProgressPainter(
-                    progress: (percentage / 100).clamp(0.0, 1.0),
-                    progressColor: color,
-                    backgroundColor: color.withOpacity(0.15),
-                    strokeWidth: 8,
-                  ),
+                width: 65,
+                height: 65,
+                child: CircularProgressIndicator(
+                  value: percentage / 100,
+                  strokeWidth: 6,
+                  backgroundColor: color.withOpacity(0.15),
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
               ),
-              // 中心图标和百分比
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, color: color, size: 22),
-                  const SizedBox(height: 2),
+                  Icon(icon, color: color, size: 16),
                   Text(
                     '${percentage.toInt()}%',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: color,
                     ),
@@ -351,134 +464,90 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
         ),
         Text(
-          '$displayValue$unit',
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[600],
-          ),
+          '${_formatValue(current, unit)}/${_formatValue(goal, unit)}',
+          style: TextStyle(fontSize: 9, color: Colors.grey[500]),
         ),
       ],
     );
   }
 
-  // 详细进度（线性进度条）
-  Widget _buildDetailedProgress(GoalProgress? progress) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          _buildProgressItem(
-            label: '步数',
-            current: progress?.steps?.current ?? 0,
-            goal: progress?.steps?.goal ?? 10000,
-            percentage: progress?.steps?.percentage ?? 0,
-            color: HealthDataType.getColor('steps'),
-            unit: '步',
-          ),
-          const SizedBox(height: 12),
-          _buildProgressItem(
-            label: '饮水',
-            current: progress?.water?.current ?? 0,
-            goal: progress?.water?.goal ?? 2500,
-            percentage: progress?.water?.percentage ?? 0,
-            color: HealthDataType.getColor('water'),
-            unit: 'ml',
-          ),
-          const SizedBox(height: 12),
-          _buildProgressItem(
-            label: '睡眠',
-            current: progress?.sleep?.current ?? 0,
-            goal: progress?.sleep?.goal ?? 8,
-            percentage: progress?.sleep?.percentage ?? 0,
-            color: HealthDataType.getColor('sleep'),
-            unit: '小时',
-          ),
-        ],
-      ),
-    );
+  String _formatValue(double value, String unit) {
+    if (unit == 'h') {
+      return value.toStringAsFixed(1);
+    }
+    return value.toInt().toString();
   }
 
-  Widget _buildProgressItem({
-    required String label,
-    required double current,
-    required double goal,
-    required double percentage,
-    required Color color,
-    required String unit,
-  }) {
+  // 快速记录 - 水平滚动条
+  Widget _buildQuickRecordSection() {
+    final quickItems = [
+      {'label': '体重', 'type': 'weight', 'icon': Icons.monitor_weight},
+      {'label': '步数', 'type': 'steps', 'icon': Icons.directions_walk},
+      {'label': '饮水', 'type': 'water', 'icon': Icons.water_drop},
+      {'label': '睡眠', 'type': 'sleep', 'icon': Icons.bedtime},
+      {'label': '心率', 'type': 'heart_rate', 'icon': Icons.favorite},
+      {'label': '血压', 'type': 'blood_pressure_sys', 'icon': Icons.favorite_border},
+      {'label': '热量', 'type': 'calories', 'icon': Icons.local_fire_department},
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label),
-            Text(
-              '${current.toInt()} / ${goal.toInt()} $unit',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '快速记录',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
-            ),
-          ],
+              TextButton(
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddRecordScreen()),
+                  );
+                  if (result == true) _loadData();
+                },
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(40, 30),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('全部 >', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 4),
-        LinearProgressIndicator(
-          value: (percentage / 100).clamp(0.0, 1.0),
-          backgroundColor: Colors.grey[200],
-          valueColor: AlwaysStoppedAnimation<Color>(color),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 70,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: quickItems.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final item = quickItems[index];
+              return _buildQuickRecordChip(
+                item['label'] as String,
+                item['type'] as String,
+                item['icon'] as IconData,
+              );
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildQuickRecordSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '快速记录',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _buildQuickRecordButton('体重', 'weight', Icons.monitor_weight),
-                _buildQuickRecordButton('步数', 'steps', Icons.directions_walk),
-                _buildQuickRecordButton('饮水', 'water', Icons.water_drop),
-                _buildQuickRecordButton('睡眠', 'sleep', Icons.bedtime),
-                _buildQuickRecordButton('心率', 'heart_rate', Icons.favorite),
-                _buildQuickRecordButton('血压', 'blood_pressure_sys', Icons.favorite_border),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickRecordButton(String label, String type, IconData icon) {
+  Widget _buildQuickRecordChip(String label, String type, IconData icon) {
     final color = HealthDataType.getColor(type);
 
     return InkWell(
@@ -489,25 +558,26 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (_) => AddRecordScreen(initialType: type),
           ),
         );
-        if (result == true) {
-          _loadData();
-        }
+        if (result == true) _loadData();
       },
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 80,
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        width: 70,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2), width: 1),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 28),
+            Icon(icon, color: color, size: 22),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: color,
                 fontWeight: FontWeight.w500,
               ),
@@ -518,48 +588,66 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDailyTipCard() {
+  // 今日数据详情 - 紧凑网格布局
+  Widget _buildTodayDataCard() {
     return Card(
-      color: AppTheme.primaryLight.withOpacity(0.1),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text(
+              '今日数据',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
-                Icon(
-                  Icons.lightbulb,
-                  color: AppTheme.accentColor,
-                  size: 24,
+                Expanded(
+                  child: _buildCompactDataItem(
+                    icon: Icons.monitor_weight,
+                    label: '体重',
+                    value: _todaySummary?.summary['weight']?.value,
+                    unit: 'kg',
+                    color: HealthDataType.getColor('weight'),
+                    decimals: 1,
+                  ),
                 ),
-                const SizedBox(width: 8),
-                const Text(
-                  '今日健康贴士',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildCompactDataItem(
+                    icon: Icons.favorite,
+                    label: '心率',
+                    value: _todaySummary?.summary['heart_rate']?.value,
+                    unit: 'bpm',
+                    color: HealthDataType.getColor('heart_rate'),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              _dailyTip!.title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _dailyTip!.content,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[700],
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildCompactDataItem(
+                    icon: Icons.favorite_border,
+                    label: '血压',
+                    customValue: _getBloodPressure(),
+                    unit: 'mmHg',
+                    color: HealthDataType.getColor('blood_pressure_sys'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildCompactDataItem(
+                    icon: Icons.local_fire_department,
+                    label: '热量',
+                    value: _todaySummary?.summary['calories']?.value,
+                    unit: 'kcal',
+                    color: HealthDataType.getColor('calories'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -567,199 +655,150 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 健康评分卡片 - 使用 fl_chart 环形图
-  Widget _buildHealthScoreCard() {
-    final score = _healthAnalysis!.healthScore;
-    Color scoreColor;
-    String scoreLabel;
+  Widget _buildCompactDataItem({
+    required IconData icon,
+    required String label,
+    double? value,
+    String? customValue,
+    required String unit,
+    required Color color,
+    int decimals = 0,
+  }) {
+    final displayValue = customValue ?? (value != null 
+        ? (decimals > 0 ? value.toStringAsFixed(decimals) : value.toInt().toString())
+        : '-');
+    final hasValue = value != null || customValue != null;
 
-    if (score >= 80) {
-      scoreColor = AppTheme.successColor;
-      scoreLabel = '优秀';
-    } else if (score >= 60) {
-      scoreColor = AppTheme.warningColor;
-      scoreLabel = '良好';
-    } else {
-      scoreColor = AppTheme.errorColor;
-      scoreLabel = '需改善';
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '健康评分',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: scoreColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    scoreLabel,
-                    style: TextStyle(
-                      color: scoreColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              height: 160,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  PieChart(
-                    PieChartData(
-                      startDegreeOffset: -90,
-                      sectionsSpace: 0,
-                      centerSpaceRadius: 55,
-                      sections: [
-                        PieChartSectionData(
-                          value: score.toDouble(),
-                          color: scoreColor,
-                          radius: 20,
-                          showTitle: false,
-                        ),
-                        PieChartSectionData(
-                          value: (100 - score).toDouble(),
-                          color: Colors.grey[200],
-                          radius: 20,
-                          showTitle: false,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$score',
-                        style: TextStyle(
-                          fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                          color: scoreColor,
-                        ),
-                      ),
-                      Text(
-                        '分',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // 评分说明
-            _buildScoreBreakdown(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 评分细分
-  Widget _buildScoreBreakdown() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Column(
+      child: Row(
         children: [
-          _buildScoreItem('BMI 指标', 20, Icons.fitness_center),
-          const SizedBox(height: 8),
-          _buildScoreItem('运动达标', 15, Icons.directions_walk),
-          const SizedBox(height: 8),
-          _buildScoreItem('睡眠质量', 10, Icons.bedtime),
-          const SizedBox(height: 8),
-          _buildScoreItem('心率血压', 10, Icons.favorite),
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      displayValue,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: hasValue ? Colors.black87 : Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      unit,
+                      style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildScoreItem(String label, int maxScore, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Expanded(child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[700]))),
-        Text(
-          '满分 $maxScore',
-          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+  String? _getBloodPressure() {
+    final sys = _todaySummary?.summary['blood_pressure_sys']?.value;
+    final dia = _todaySummary?.summary['blood_pressure_dia']?.value;
+    if (sys != null && dia != null) {
+      return '${sys.toInt()}/${dia.toInt()}';
+    }
+    return null;
+  }
+
+  // 每日贴士
+  Widget _buildDailyTipCard() {
+    return Card(
+      color: AppTheme.primaryLight.withOpacity(0.06),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.accentColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.lightbulb_outline,
+                color: AppTheme.accentColor,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _dailyTip!.title,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _dailyTip!.category,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: AppTheme.accentColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _dailyTip!.content,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[700],
+                      height: 1.35,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
-  }
-}
-
-// 自定义环形进度绘制器
-class _RadialProgressPainter extends CustomPainter {
-  final double progress;
-  final Color progressColor;
-  final Color backgroundColor;
-  final double strokeWidth;
-
-  _RadialProgressPainter({
-    required this.progress,
-    required this.progressColor,
-    required this.backgroundColor,
-    this.strokeWidth = 8,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - strokeWidth / 2;
-
-    // 背景圆弧
-    final backgroundPaint = Paint()
-      ..color = backgroundColor
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(center, radius, backgroundPaint);
-
-    // 进度圆弧
-    final progressPaint = Paint()
-      ..color = progressColor
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final sweepAngle = 2 * math.pi * progress;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      sweepAngle,
-      false,
-      progressPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _RadialProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.progressColor != progressColor;
   }
 }

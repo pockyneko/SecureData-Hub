@@ -84,15 +84,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('个人中心'),
+        title: const Text('我的'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _showLogoutDialog(),
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => _showSettingsSheet(),
           ),
         ],
       ),
@@ -102,33 +98,420 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onRefresh: _loadData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   children: [
-                    // 用户信息卡片
-                    _buildUserCard(user),
-                    const SizedBox(height: 16),
+                    // 用户信息卡片（简化版）
+                    _buildCompactUserCard(user),
+                    const SizedBox(height: 12),
 
-                    // 健康档案卡片
-                    _buildHealthProfileCard(),
-                    const SizedBox(height: 16),
+                    // 健康档案（可展开卡片）
+                    _buildExpandableHealthProfile(),
+                    const SizedBox(height: 10),
 
-                    // 个性化标准卡片
-                    if (_personalizedStandards != null) ...[
-                      _buildPersonalizedStandardsCard(),
-                      const SizedBox(height: 16),
-                    ],
+                    // 健康目标（可展开卡片）
+                    _buildExpandableGoals(),
+                    const SizedBox(height: 10),
 
-                    // 健康目标卡片
-                    _buildGoalsCard(),
-                    const SizedBox(height: 16),
+                    // 个性化标准（如果有）
+                    if (_personalizedStandards != null)
+                      _buildExpandableStandards(),
+                    const SizedBox(height: 12),
 
-                    // 设置菜单
-                    _buildSettingsMenu(),
+                    // 功能菜单
+                    _buildFunctionMenu(),
+                    const SizedBox(height: 70),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  // 紧凑的用户信息卡片
+  Widget _buildCompactUserCard(user) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: AppTheme.primaryColor,
+              child: Text(
+                (user?.displayName ?? 'U')[0].toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 22,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user?.displayName ?? '用户',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    user?.email ?? '',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _buildCompactInfoChip(
+                        icon: Icons.height,
+                        label: user?.height != null ? '${user!.height!.toInt()} cm' : '-',
+                      ),
+                      const SizedBox(width: 8),
+                      _buildCompactInfoChip(
+                        icon: Icons.person,
+                        label: user?.gender == 'male' ? '男' : (user?.gender == 'female' ? '女' : '-'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => _showEditProfileDialog(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactInfoChip({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.grey[600]),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 可展开的健康档案
+  Widget _buildExpandableHealthProfile() {
+    return Card(
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          leading: Icon(Icons.medical_information, color: AppTheme.primaryColor),
+          title: const Text('健康档案', style: TextStyle(fontWeight: FontWeight.w500)),
+          subtitle: Text(
+            _healthProfile != null 
+                ? _healthProfile!.ageGroup?.displayName ?? '已设置'
+                : '未设置',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit, size: 18),
+                onPressed: () => _showEditHealthProfileDialog(),
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+              ),
+              const Icon(Icons.expand_more),
+            ],
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: _buildHealthProfileContent(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHealthProfileContent() {
+    if (_healthProfile == null) {
+      return Center(
+        child: TextButton.icon(
+          onPressed: () => _showEditHealthProfileDialog(),
+          icon: const Icon(Icons.add),
+          label: const Text('创建健康档案'),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        _buildDetailRow('年龄段', _healthProfile!.ageGroup?.displayName ?? '-'),
+        _buildDetailRow('活动水平', _healthProfile!.activityLevel?.displayName ?? '-'),
+        _buildDetailRow('健康状态', _healthProfile!.healthCondition?.displayName ?? '-'),
+        if (_healthProfile!.hasCardiovascularIssues ||
+            _healthProfile!.hasDiabetes ||
+            _healthProfile!.hasJointIssues ||
+            _healthProfile!.isPregnant ||
+            _healthProfile!.isRecovering) ...[
+          const Divider(),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              if (_healthProfile!.hasCardiovascularIssues)
+                _buildSmallTag('心血管', Colors.red),
+              if (_healthProfile!.hasDiabetes)
+                _buildSmallTag('糖尿病', Colors.orange),
+              if (_healthProfile!.hasJointIssues)
+                _buildSmallTag('关节问题', Colors.blue),
+              if (_healthProfile!.isPregnant)
+                _buildSmallTag('孕期', Colors.pink),
+              if (_healthProfile!.isRecovering)
+                _buildSmallTag('康复期', Colors.green),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  // 可展开的健康目标
+  Widget _buildExpandableGoals() {
+    return Card(
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          leading: Icon(Icons.flag, color: AppTheme.primaryColor),
+          title: const Text('健康目标', style: TextStyle(fontWeight: FontWeight.w500)),
+          subtitle: Text(
+            '${_goals?.stepsGoal ?? 8000} 步/天',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit, size: 18),
+                onPressed: () => _showEditGoalsDialog(),
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+              ),
+              const Icon(Icons.expand_more),
+            ],
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: _buildGoalsContent(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoalsContent() {
+    return Column(
+      children: [
+        _buildGoalRow(Icons.directions_walk, '每日步数', '${_goals?.stepsGoal ?? 8000} 步', HealthDataType.getColor('steps')),
+        _buildGoalRow(Icons.water_drop, '每日饮水', '${_goals?.waterGoal ?? 2000} ml', HealthDataType.getColor('water')),
+        _buildGoalRow(Icons.bedtime, '每日睡眠', '${_goals?.sleepGoal ?? 8} 小时', HealthDataType.getColor('sleep')),
+        _buildGoalRow(Icons.local_fire_department, '每日热量', '${_goals?.caloriesGoal ?? 2000} kcal', HealthDataType.getColor('calories')),
+      ],
+    );
+  }
+
+  // 可展开的个性化标准
+  Widget _buildExpandableStandards() {
+    return Card(
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          leading: Icon(Icons.tune, color: AppTheme.primaryColor),
+          title: const Text('个性化标准', style: TextStyle(fontWeight: FontWeight.w500)),
+          subtitle: Text(
+            '基于档案计算',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: _buildPersonalizedStandardsContent(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalizedStandardsContent() {
+    final standards = _personalizedStandards!;
+    return Column(
+      children: [
+        if (standards.recommendedDailySteps != null)
+          _buildDetailRow('建议步数', '${standards.recommendedDailySteps} 步'),
+        if (standards.recommendedSleepHours != null)
+          _buildDetailRow('建议睡眠', '${standards.recommendedSleepHours} 小时'),
+        if (standards.recommendedWaterMl != null)
+          _buildDetailRow('建议饮水', '${standards.recommendedWaterMl} ml'),
+        if (standards.recommendedHeartRateMin != null && standards.recommendedHeartRateMax != null)
+          _buildDetailRow('心率范围', '${standards.recommendedHeartRateMin}-${standards.recommendedHeartRateMax} bpm'),
+        if (standards.bmiOptimalMin != null && standards.bmiOptimalMax != null)
+          _buildDetailRow('BMI范围', '${standards.bmiOptimalMin?.toStringAsFixed(1)}-${standards.bmiOptimalMax?.toStringAsFixed(1)}'),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoalRow(IconData icon, String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+          const Spacer(),
+          Text(value, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmallTag(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+
+  // 功能菜单
+  Widget _buildFunctionMenu() {
+    return Card(
+      child: Column(
+        children: [
+          _buildMenuItemNew(
+            icon: Icons.analytics,
+            label: '个性化健康分析',
+            onTap: () => _showPersonalizedAnalysisDialog(),
+          ),
+          const Divider(height: 1),
+          _buildMenuItemNew(
+            icon: Icons.lock_outline,
+            label: '修改密码',
+            onTap: () => _showChangePasswordDialog(),
+          ),
+          const Divider(height: 1),
+          _buildMenuItemNew(
+            icon: Icons.auto_awesome,
+            label: '生成模拟数据',
+            onTap: () => _showGenerateMockDataDialog(),
+          ),
+          const Divider(height: 1),
+          _buildMenuItemNew(
+            icon: Icons.info_outline,
+            label: '关于应用',
+            onTap: () => _showAboutDialog(),
+          ),
+          const Divider(height: 1),
+          _buildMenuItemNew(
+            icon: Icons.logout,
+            label: '退出登录',
+            color: AppTheme.errorColor,
+            onTap: () => _showLogoutDialog(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItemNew({
+    required IconData icon,
+    required String label,
+    Color? color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: color ?? Colors.grey[700], size: 22),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontSize: 14,
+          color: color ?? Colors.grey[800],
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+      onTap: onTap,
+      dense: true,
+    );
+  }
+
+  void _showSettingsSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.refresh),
+              title: const Text('刷新数据'),
+              onTap: () {
+                Navigator.pop(context);
+                _loadData();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.help_outline),
+              title: const Text('帮助与反馈'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('功能即将上线')),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 

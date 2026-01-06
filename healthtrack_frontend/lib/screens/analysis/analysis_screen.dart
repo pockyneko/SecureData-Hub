@@ -32,7 +32,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     // 使用 addPostFrameCallback 确保 widget 树构建完成后再加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
@@ -140,12 +140,17 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('健康分析'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadData,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: '健康报告'),
+            Tab(text: '综合报告'),
             Tab(text: '趋势图表'),
-            Tab(text: '个性化分析'),
           ],
         ),
       ),
@@ -154,11 +159,328 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           : TabBarView(
               controller: _tabController,
               children: [
-                _buildAnalysisTab(),
+                _buildCombinedAnalysisTab(),
                 _buildTrendsTab(),
-                _buildPersonalizedTab(),
               ],
             ),
+    );
+  }
+
+  // 综合分析Tab - 整合健康报告和个性化分析
+  Widget _buildCombinedAnalysisTab() {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 健康评分卡片（优先显示个性化评分）
+            _buildCombinedScoreCard(),
+            const SizedBox(height: 16),
+
+            // BMI 分析
+            if (_analysis?.bmiAnalysis != null) ...[
+              _buildBmiCard(),
+              const SizedBox(height: 16),
+            ],
+
+            // 健康指标雷达图（如果有个性化分析数据）
+            if (_personalizedAnalysis != null && _personalizedAnalysis!.metricsAnalysis.isNotEmpty) ...[
+              _buildRadarChartCard(),
+              const SizedBox(height: 16),
+            ],
+
+            // 当前状态
+            if (_analysis != null) ...[
+              _buildCurrentStatusCard(),
+              const SizedBox(height: 16),
+            ],
+
+            // 各项指标详情
+            if (_personalizedAnalysis != null && _personalizedAnalysis!.metricsAnalysis.isNotEmpty) ...[
+              _buildMetricsAnalysisCard(),
+              const SizedBox(height: 16),
+            ],
+
+            // 统计数据
+            if (_analysis != null) ...[
+              _buildStatisticsCard(),
+              const SizedBox(height: 16),
+            ],
+
+            // 健康建议（合并两个来源的建议）
+            _buildCombinedRecommendationsCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 综合评分卡片
+  Widget _buildCombinedScoreCard() {
+    // 优先使用个性化评分，否则使用普通评分
+    final score = _personalizedAnalysis?.overallScore ?? _analysis?.healthScore ?? 0;
+    final isPersonalized = _personalizedAnalysis != null && _personalizedAnalysis!.overallScore != null;
+    
+    Color scoreColor;
+    String scoreLabel;
+
+    if (score >= 80) {
+      scoreColor = AppTheme.successColor;
+      scoreLabel = '优秀';
+    } else if (score >= 60) {
+      scoreColor = AppTheme.warningColor;
+      scoreLabel = '良好';
+    } else if (score > 0) {
+      scoreColor = AppTheme.errorColor;
+      scoreLabel = '需改善';
+    } else {
+      scoreColor = Colors.grey;
+      scoreLabel = '暂无数据';
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      '健康评分',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (isPersonalized) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.person, size: 12, color: AppTheme.primaryColor),
+                            const SizedBox(width: 2),
+                            Text(
+                              '个性化',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: scoreColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    scoreLabel,
+                    style: TextStyle(
+                      color: scoreColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 130,
+                  height: 130,
+                  child: CircularProgressIndicator(
+                    value: score / 100,
+                    strokeWidth: 12,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(scoreColor),
+                  ),
+                ),
+                Column(
+                  children: [
+                    Text(
+                      '$score',
+                      style: TextStyle(
+                        fontSize: 38,
+                        fontWeight: FontWeight.bold,
+                        color: scoreColor,
+                      ),
+                    ),
+                    Text(
+                      '分',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: scoreColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            if (isPersonalized) ...[
+              const SizedBox(height: 12),
+              Text(
+                '基于您的个人健康档案计算',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 合并的健康建议卡片
+  Widget _buildCombinedRecommendationsCard() {
+    final List<dynamic> allRecommendations = [];
+    
+    // 添加普通分析的建议
+    if (_analysis?.recommendations.isNotEmpty == true) {
+      allRecommendations.addAll(_analysis!.recommendations);
+    }
+    
+    // 添加个性化分析的建议
+    if (_personalizedAnalysis?.recommendations.isNotEmpty == true) {
+      allRecommendations.addAll(_personalizedAnalysis!.recommendations);
+    }
+
+    if (allRecommendations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // 去重（根据 advice 内容）
+    final seen = <String>{};
+    final uniqueRecommendations = allRecommendations.where((r) {
+      final advice = r is Recommendation ? r.advice : (r as PersonalizedRecommendation).advice;
+      return seen.add(advice);
+    }).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lightbulb, color: AppTheme.accentColor, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  '健康建议',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...uniqueRecommendations.take(6).map((r) {
+              if (r is Recommendation) {
+                return _buildRecommendationItemNew(
+                  category: r.category,
+                  advice: r.advice,
+                  priority: r.priority,
+                );
+              } else {
+                final pr = r as PersonalizedRecommendation;
+                return _buildRecommendationItemNew(
+                  category: pr.category,
+                  advice: pr.advice,
+                  priority: pr.priority,
+                );
+              }
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendationItemNew({
+    required String category,
+    required String advice,
+    required String priority,
+  }) {
+    Color priorityColor;
+    IconData priorityIcon;
+
+    switch (priority) {
+      case 'high':
+        priorityColor = AppTheme.errorColor;
+        priorityIcon = Icons.priority_high;
+        break;
+      case 'medium':
+        priorityColor = AppTheme.warningColor;
+        priorityIcon = Icons.info;
+        break;
+      default:
+        priorityColor = AppTheme.successColor;
+        priorityIcon = Icons.check_circle;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: priorityColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: priorityColor.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(priorityIcon, color: priorityColor, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  category,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: priorityColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  advice,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[800],
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
